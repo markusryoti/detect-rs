@@ -1,4 +1,4 @@
-use image::{GenericImageView, ImageReader, imageops::FilterType};
+use image::{DynamicImage, GenericImageView, ImageReader, imageops::FilterType};
 use ndarray::{Array, Axis, s};
 use ort::{
     inputs,
@@ -7,6 +7,38 @@ use ort::{
     value::TensorRef,
 };
 use serde::{Deserialize, Serialize};
+use tracing::{Level, info, instrument, span};
+
+pub struct ModelImage {
+    name: String,
+    image: DynamicImage,
+}
+
+impl ModelImage {
+    #[instrument(level = "info", name = "load_image")]
+    pub fn new(name: &str) -> Self {
+        info!("Start loading");
+
+        let file_name = format!("model/data/{name}");
+
+        let img = ImageReader::open(file_name).unwrap().decode().unwrap();
+
+        info!("Image loaded");
+
+        ModelImage {
+            name: String::from(name),
+            image: img,
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn get_dynamic(self) -> DynamicImage {
+        self.image
+    }
+}
 
 pub struct Detector {
     model: Mutex<Session>,
@@ -28,14 +60,16 @@ impl Detector {
         }
     }
 
-    pub fn detect(&self) -> Vec<(BoundingBox, &str, f32)> {
-        let original_img = ImageReader::open("model/data/golden-retriever-tongue-out.jpg")
-            .unwrap()
-            .decode()
-            .unwrap();
+    pub fn detect(&self, image: ModelImage) -> Vec<(BoundingBox, &str, f32)> {
+        let span = span!(Level::INFO, "detection");
+        let _enter = span.enter();
 
-        let (img_width, img_height) = (original_img.width(), original_img.height());
-        let img = original_img.resize_exact(640, 640, FilterType::CatmullRom);
+        info!("Starting detection");
+
+        let image = image.get_dynamic();
+
+        let (img_width, img_height) = (image.width(), image.height());
+        let img = image.resize_exact(640, 640, FilterType::CatmullRom);
 
         let mut input = Array::zeros((1, 3, 640, 640));
 
@@ -48,7 +82,7 @@ impl Detector {
             input[[0, 2, y, x]] = (b as f32) / 255.;
         }
 
-        let inputs = inputs!["images" => TensorRef::from_array_view(&input).unwrap()];
+        let inputs = inputs![TensorRef::from_array_view(&input).unwrap()];
 
         let mut model_guard = self.model.lock();
         let result = model_guard.run(inputs);
@@ -69,6 +103,7 @@ impl Detector {
 
         for row in output.axis_iter(Axis(0)) {
             let row: Vec<_> = row.iter().copied().collect();
+
             let (class_id, prob) = row
                 .iter()
                 // skip bounding box coordinates
@@ -114,7 +149,7 @@ impl Detector {
                 .collect();
         }
 
-        println!("Results: {result:?}");
+        info!("Detection done");
 
         result
     }
