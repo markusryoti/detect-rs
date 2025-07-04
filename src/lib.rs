@@ -64,7 +64,8 @@ impl Detector {
         let span = span!(Level::INFO, "detection");
         let _enter = span.enter();
 
-        info!("Starting detection");
+        let name = image.get_name();
+        info!(msg = "Starting detection", name = name);
 
         let image = image.get_dynamic();
 
@@ -149,7 +150,7 @@ impl Detector {
                 .collect();
         }
 
-        info!("Detection done");
+        info!(msg = "Detection done", name = name);
 
         result
     }

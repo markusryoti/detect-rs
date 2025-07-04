@@ -1,17 +1,36 @@
 use detect_rs::{Detector, ModelImage};
 
-use axum::{Router, extract::State, response::Json, routing::get};
+use axum::{
+    Router,
+    extract::{Query, State},
+    response::Json,
+    routing::get,
+};
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{Level, info, span};
 
-async fn detect(State(state): State<Arc<AppState>>) -> Json<Value> {
+async fn detect(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
     let span = span!(Level::INFO, "detect");
     let _enter = span.enter();
 
     info!("Detection route");
 
-    let img = ModelImage::new("golden-retriever-tongue-out.jpg");
+    let file = if let Some(name) = params.get("s") {
+        match name.as_str() {
+            "golden" => "golden.jpg",
+            "kitten" => "kitten.png",
+            "husky" => "husky.webp",
+            _ => panic!("Invalid name"),
+        }
+    } else {
+        panic!("Invalid name");
+    };
+
+    let img = ModelImage::new(file);
     let result = state.detector.detect(img);
 
     info!("Detection route complete");
