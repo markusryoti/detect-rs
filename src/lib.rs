@@ -35,11 +35,16 @@ impl ModelImage {
         }
     }
 
+    #[instrument(level = "info", name = "load_image_from_bytes", skip(b))]
     pub fn from_bytes(name: &str, b: &[u8]) -> Result<Self, ModelImageError> {
+        info!("Start loading");
+
         let img = match load_from_memory(&b) {
             Ok(i) => i,
             Err(e) => return Err(ModelImageError::Message(e.to_string())),
         };
+
+        info!("End loading");
 
         Ok(ModelImage {
             name: String::from(name),
@@ -68,7 +73,7 @@ pub struct Detector {
 }
 
 impl Detector {
-    pub fn new() -> Detector {
+    pub fn new() -> Self {
         let model = Session::builder()
             .unwrap()
             .with_optimization_level(GraphOptimizationLevel::Level3)

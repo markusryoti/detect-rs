@@ -18,6 +18,11 @@ async fn classify(
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
 ) -> Result<Json<Value>, AppError> {
+    let span = span!(Level::INFO, "detect");
+    let _enter = span.enter();
+
+    info!("Classifying route");
+
     let mut img_bytes: Option<bytes::Bytes> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -30,17 +35,20 @@ async fn classify(
         }
     }
 
+    info!("Read multipart");
+
     let b = match img_bytes {
         Some(b) => b,
         None => return Err(AppError::Message(String::from("no image in request"))),
     };
 
     let model_img = ModelImage::from_bytes("some name", &b);
-
     let img = match model_img {
         Ok(img) => img,
         Err(_e) => return Err(AppError::Message(String::from("Error classifying image"))),
     };
+
+    info!("Have model image");
 
     let res = state.detector.detect(img);
 
