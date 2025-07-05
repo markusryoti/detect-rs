@@ -2,18 +2,83 @@ use detect_rs::{Detector, ModelImage};
 
 use axum::{
     Router,
-    extract::{Query, State},
-    response::Json,
-    routing::get,
+    extract::{Multipart, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Json, Response},
+    routing::{get, post},
 };
+use image::{DynamicImage, ImageError, ImageResult, load_from_memory};
+use serde::Serialize;
+use tower_http::cors::{Any, CorsLayer};
+
 use serde_json::{Value, json};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{Level, info, span};
 
+async fn classify(
+    State(state): State<Arc<AppState>>,
+    mut multipart: Multipart,
+) -> Result<Json<Value>, AppError> {
+    let mut img: Option<ImageResult<DynamicImage>> = None;
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        if let Some(name) = field.name() {
+            if name == "image" {
+                if let Ok(data) = field.bytes().await {
+                    img = Some(load_from_memory(&data))
+                }
+            }
+        }
+    }
+
+    let img = match img {
+        Some(res) => match res {
+            Ok(i) => i,
+            Err(e) => return Err(AppError::ImageError(e)),
+        },
+        None => return Err(AppError::Message(String::from("no image in request"))),
+    };
+
+    let model_img = ModelImage::from_dynamic("some name", img);
+    let res = state.detector.detect(model_img);
+
+    Ok(Json(json!(res)))
+}
+
+enum AppError {
+    Message(String),
+    ImageError(ImageError),
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        #[derive(Serialize)]
+        struct ErrorResponse {
+            message: String,
+        }
+
+        let (status, message) = match self {
+            AppError::Message(message) => {
+                tracing::error!(message);
+                (StatusCode::INTERNAL_SERVER_ERROR, String::from(message))
+            }
+            AppError::ImageError(_image_error) => {
+                tracing::error!("image error");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("image error"),
+                )
+            }
+        };
+
+        (status, Json(ErrorResponse { message })).into_response()
+    }
+}
+
 async fn detect(
     Query(params): Query<HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
     let span = span!(Level::INFO, "detect");
     let _enter = span.enter();
 
@@ -24,10 +89,10 @@ async fn detect(
             "golden" => "golden.jpg",
             "kitten" => "kitten.png",
             "husky" => "husky.webp",
-            _ => panic!("Invalid name"),
+            _ => return Err(AppError::Message(String::from("invalid file"))),
         }
     } else {
-        panic!("Invalid name");
+        return Err(AppError::Message(String::from("invalid file")));
     };
 
     let img = ModelImage::new(file);
@@ -35,7 +100,7 @@ async fn detect(
 
     info!("Detection route complete");
 
-    Json(json!(result))
+    Ok(Json(json!(result)))
 }
 
 struct AppState {
@@ -57,10 +122,14 @@ async fn main() {
 
     let shared_state = Arc::new(AppState { detector });
 
+    let cors = CorsLayer::new().allow_origin(Any);
+
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
         .route("/detect", get(detect))
-        .with_state(shared_state);
+        .route("/classify", post(classify))
+        .with_state(shared_state)
+        .layer(cors);
 
     info!("Starting server on port 3000");
 

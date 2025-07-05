@@ -17,7 +17,7 @@ def print_detection_results(results):
 model = YOLO("yolov8n.pt")
 
 # Perform object detection on an image
-results = model("data/golden-retriever-tongue-out.jpg")
+results = model("data/kitten.png")
 
 print_detection_results(results)
 

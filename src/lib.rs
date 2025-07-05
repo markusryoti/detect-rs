@@ -31,6 +31,13 @@ impl ModelImage {
         }
     }
 
+    pub fn from_dynamic(name: &str, img: DynamicImage) -> Self {
+        ModelImage {
+            name: String::from(name),
+            image: img,
+        }
+    }
+
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
