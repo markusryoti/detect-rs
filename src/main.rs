@@ -1,5 +1,3 @@
-use detect_rs::{Detector, ModelImage};
-
 use axum::{
     Router,
     extract::{Multipart, Query, State},
@@ -7,6 +5,7 @@ use axum::{
     response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
+use detect_rs::{detector::Detector, image::ModelImage};
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 
