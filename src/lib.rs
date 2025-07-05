@@ -1,4 +1,4 @@
-use image::{DynamicImage, GenericImageView, ImageReader, imageops::FilterType};
+use image::{DynamicImage, GenericImageView, ImageReader, imageops::FilterType, load_from_memory};
 use ndarray::{Array, Axis, s};
 use ort::{
     inputs,
@@ -12,6 +12,10 @@ use tracing::{Level, info, instrument, span};
 pub struct ModelImage {
     name: String,
     image: DynamicImage,
+}
+
+pub enum ModelImageError {
+    Message(String),
 }
 
 impl ModelImage {
@@ -29,6 +33,18 @@ impl ModelImage {
             name: String::from(name),
             image: img,
         }
+    }
+
+    pub fn from_bytes(name: &str, b: &[u8]) -> Result<Self, ModelImageError> {
+        let img = match load_from_memory(&b) {
+            Ok(i) => i,
+            Err(e) => return Err(ModelImageError::Message(e.to_string())),
+        };
+
+        Ok(ModelImage {
+            name: String::from(name),
+            image: img,
+        })
     }
 
     pub fn from_dynamic(name: &str, img: DynamicImage) -> Self {

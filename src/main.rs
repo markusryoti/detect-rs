@@ -7,7 +7,6 @@ use axum::{
     response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
-use image::{DynamicImage, ImageError, ImageResult, load_from_memory};
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -19,35 +18,37 @@ async fn classify(
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
 ) -> Result<Json<Value>, AppError> {
-    let mut img: Option<ImageResult<DynamicImage>> = None;
+    let mut img_bytes: Option<bytes::Bytes> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         if let Some(name) = field.name() {
             if name == "image" {
                 if let Ok(data) = field.bytes().await {
-                    img = Some(load_from_memory(&data))
+                    img_bytes = Some(data);
                 }
             }
         }
     }
 
-    let img = match img {
-        Some(res) => match res {
-            Ok(i) => i,
-            Err(e) => return Err(AppError::ImageError(e)),
-        },
+    let b = match img_bytes {
+        Some(b) => b,
         None => return Err(AppError::Message(String::from("no image in request"))),
     };
 
-    let model_img = ModelImage::from_dynamic("some name", img);
-    let res = state.detector.detect(model_img);
+    let model_img = ModelImage::from_bytes("some name", &b);
+
+    let img = match model_img {
+        Ok(img) => img,
+        Err(_e) => return Err(AppError::Message(String::from("Error classifying image"))),
+    };
+
+    let res = state.detector.detect(img);
 
     Ok(Json(json!(res)))
 }
 
 enum AppError {
     Message(String),
-    ImageError(ImageError),
 }
 
 impl IntoResponse for AppError {
@@ -61,13 +62,6 @@ impl IntoResponse for AppError {
             AppError::Message(message) => {
                 tracing::error!(message);
                 (StatusCode::INTERNAL_SERVER_ERROR, String::from(message))
-            }
-            AppError::ImageError(_image_error) => {
-                tracing::error!("image error");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    String::from("image error"),
-                )
             }
         };
 
