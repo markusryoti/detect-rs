@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use image::{DynamicImage, ImageReader, load_from_memory};
 use tracing::{info, instrument};
 
@@ -31,12 +33,15 @@ impl ModelImage {
     pub fn from_bytes(name: &str, b: &[u8]) -> Result<Self, ModelImageError> {
         info!("Start loading");
 
+        let start = Instant::now();
+
         let img = match load_from_memory(&b) {
             Ok(i) => i,
             Err(e) => return Err(ModelImageError::Message(e.to_string())),
         };
 
-        info!("End loading");
+        let duration = start.elapsed();
+        info!("Image loaded in {:.2?}", duration);
 
         Ok(ModelImage {
             name: String::from(name),

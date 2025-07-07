@@ -64,7 +64,12 @@ export default function App() {
         <CardContent className="flex flex-col gap-4">
           <h1 className="text-2xl font-bold text-center">Image Classifier</h1>
 
-          <input type="file" accept="image/*" onChange={handleFileChange} />
+          <input
+            className="file:bg-secondary file:text-sm file:font-semibold file:cursor-pointer file:p-2 file:rounded"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+          />
 
           {previewUrl && (
             <img
@@ -84,7 +89,7 @@ export default function App() {
 
           {classification && (
             <div className="mt-4 text-center text-lg font-semibold">
-              Result: {classification}
+              {classification}
             </div>
           )}
         </CardContent>

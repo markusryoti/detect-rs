@@ -17,7 +17,7 @@ async fn classify(
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
 ) -> Result<Json<Value>, AppError> {
-    let span = span!(Level::INFO, "detect");
+    let span = span!(Level::INFO, "form_detection");
     let _enter = span.enter();
 
     info!("Classifying route");

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use image::{GenericImageView, imageops::FilterType};
 use ndarray::{Array, Axis, s};
 use ort::{
@@ -32,16 +34,23 @@ impl Detector {
     }
 
     pub fn detect(&self, image: ModelImage) -> Vec<(BoundingBox, &str, f32)> {
-        let span = span!(Level::INFO, "detection");
+        let span = span!(Level::INFO, "inference");
         let _enter = span.enter();
 
         let name = image.get_name();
+        let image = image.get_dynamic();
+
         info!(msg = "Starting detection", name = name);
 
-        let image = image.get_dynamic();
+        let start = Instant::now();
 
         let (img_width, img_height) = (image.width(), image.height());
         let img = image.resize_exact(640, 640, FilterType::CatmullRom);
+
+        let duration = start.elapsed();
+        info!("Image resized in {:.2?}", duration);
+
+        let start = Instant::now();
 
         let mut input = Array::zeros((1, 3, 640, 640));
 
@@ -56,8 +65,18 @@ impl Detector {
 
         let inputs = inputs![TensorRef::from_array_view(&input).unwrap()];
 
+        let duration = start.elapsed();
+        info!("Tensors created in {:.2?}", duration);
+
+        let start = Instant::now();
+
         let mut model_guard = self.model.lock();
         let result = model_guard.run(inputs);
+
+        let duration = start.elapsed();
+        info!("Inference completed in {:.2?}", duration);
+
+        let start = Instant::now();
 
         let outputs: SessionOutputs = match result {
             Ok(outputs) => outputs,
@@ -120,6 +139,9 @@ impl Detector {
                 .copied()
                 .collect();
         }
+
+        let duration = start.elapsed();
+        info!("Result objects created in {:.2?}", duration);
 
         info!(msg = "Detection done", name = name);
 
