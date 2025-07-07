@@ -1,0 +1,19 @@
+:80 {
+    # Set the root directory for serving files.
+    # This should match the directory where your React build output is copied.
+    root * /usr/share/caddy
+
+    # Enable static file serving.
+    file_server
+
+    # This is crucial for Single Page Applications (SPAs) like React.
+    # It rewrites all requests that don't match a file to index.html,
+    # allowing React Router to handle client-side routing.
+    handle {
+        try_files {path} {path}/ index.html
+    }
+
+    # Optional: Enable gzip compression for better performance.
+    # encode gzip
+}
+
