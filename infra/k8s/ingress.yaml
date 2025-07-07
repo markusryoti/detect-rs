@@ -3,9 +3,6 @@ kind: Ingress
 metadata:
   name: detection-app-ingress
   annotations:
-    # Optional: If you have multiple ingress controllers, specify Traefik
-    # ingress.kubernetes.io/router.entrypoints: web
-    # kubernetes.io/ingress.class: traefik
 spec:
   rules:
   - host: detection-app.local
@@ -28,3 +25,14 @@ spec:
             name: api-service
             port:
               number: 8080
+  - host: jaeger.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jaeger-all-in-one
+            port:
+              number: 16686
+
