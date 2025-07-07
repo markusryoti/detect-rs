@@ -23,6 +23,9 @@ spec:
         env:
         - name: RUST_LOG
           value: info
+        env:
+        - name: OTEL_ADDR
+          value: http://jaeger-all-in-one:4318/v1/traces
 
 ---
 apiVersion: v1

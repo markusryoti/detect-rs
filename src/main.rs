@@ -6,98 +6,75 @@ use axum::{
     routing::{get, post},
 };
 use detect_rs::{detector::Detector, image::ModelImage};
-use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::Resource;
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 
 use serde_json::{Value, json};
-use std::{collections::HashMap, sync::Arc};
-use tracing::{Level, info, span};
+use std::{collections::HashMap, env, sync::Arc};
 
-use opentelemetry::{
-    KeyValue, global,
-    trace::{Tracer, get_active_span},
-};
+use tracing::{Level, info, span};
+use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-async fn test_tracing() {
-    let tracer = global::tracer("my_tracer");
-
-    tracer.in_span("testing_tracing", |_cx| sum(1, 3));
-}
-
-fn sum(a: i32, b: i32) -> i32 {
-    let s = a + b;
-
-    info!(msg = "calculated sum", sum = s);
-
-    get_active_span(|span| {
-        span.add_event(
-            "An event!".to_string(),
-            vec![KeyValue::new("sum", format!("{s}"))],
-        );
-    });
-
-    s
-}
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry::{
+    KeyValue,
+    global::{self},
+    trace::get_active_span,
+};
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::Resource;
 
 async fn classify(
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
 ) -> Result<Json<Value>, AppError> {
-    // let span = span!(Level::INFO, "form_detection");
-    // let _enter = span.enter();
+    let span = span!(Level::INFO, "form_detection");
+    let _enter = span.enter();
 
-    let tracer = global::tracer("my_tracer");
+    info!("Classifying route");
 
-    tracer
-        .in_span("classifying", async |_cx| {
-            info!("Classifying route");
+    let mut img_bytes: Option<bytes::Bytes> = None;
 
-            let mut img_bytes: Option<bytes::Bytes> = None;
-
-            while let Ok(Some(field)) = multipart.next_field().await {
-                if let Some(name) = field.name() {
-                    if name == "image" {
-                        if let Ok(data) = field.bytes().await {
-                            img_bytes = Some(data);
-                        }
-                    }
+    while let Ok(Some(field)) = multipart.next_field().await {
+        if let Some(name) = field.name() {
+            if name == "image" {
+                if let Ok(data) = field.bytes().await {
+                    img_bytes = Some(data);
                 }
             }
+        }
+    }
 
-            info!("Read multipart");
+    info!("Read multipart");
 
-            let b = match img_bytes {
-                Some(b) => b,
-                None => return Err(AppError::Message(String::from("no image in request"))),
-            };
+    let b = match img_bytes {
+        Some(b) => b,
+        None => return Err(AppError::Message(String::from("no image in request"))),
+    };
 
-            let n_bytes = b.len();
+    let n_bytes = b.len();
 
-            get_active_span(|span| {
-                span.add_event(
-                    "form parsed",
-                    vec![KeyValue::new("form bytes", format!("{n_bytes}"))],
-                )
-            });
+    get_active_span(|span| {
+        span.add_event(
+            "form parsed",
+            vec![KeyValue::new("form bytes", format!("{n_bytes}"))],
+        )
+    });
 
-            let model_img = ModelImage::from_bytes("some name", &b);
-            let img = match model_img {
-                Ok(img) => img,
-                Err(_e) => return Err(AppError::Message(String::from("Error classifying image"))),
-            };
+    let model_img = ModelImage::from_bytes("some name", &b);
+    let img = match model_img {
+        Ok(img) => img,
+        Err(_e) => return Err(AppError::Message(String::from("Error classifying image"))),
+    };
 
-            info!("Have model image");
+    info!("Have model image");
 
-            let res = state.detector.detect(img);
+    let res = state.detector.detect(img);
 
-            get_active_span(|span| span.add_event("inference done", vec![]));
+    get_active_span(|span| span.add_event("inference done", vec![]));
 
-            Ok(Json(json!(res)))
-        })
-        .await
+    Ok(Json(json!(res)))
 }
 
 enum AppError {
@@ -129,29 +106,25 @@ async fn detect(
     let span = span!(Level::INFO, "detect");
     let _enter = span.enter();
 
-    let tracer = global::tracer("my_tracer");
+    info!("Detection route");
 
-    tracer.in_span("detecting_from_files", |_cx| {
-        info!("Detection route");
+    let file = if let Some(name) = params.get("s") {
+        match name.as_str() {
+            "golden" => "golden.jpg",
+            "kitten" => "kitten.png",
+            "husky" => "husky.webp",
+            _ => return Err(AppError::Message(String::from("invalid file"))),
+        }
+    } else {
+        return Err(AppError::Message(String::from("invalid file")));
+    };
 
-        let file = if let Some(name) = params.get("s") {
-            match name.as_str() {
-                "golden" => "golden.jpg",
-                "kitten" => "kitten.png",
-                "husky" => "husky.webp",
-                _ => return Err(AppError::Message(String::from("invalid file"))),
-            }
-        } else {
-            return Err(AppError::Message(String::from("invalid file")));
-        };
+    let img = ModelImage::new(file);
+    let result = state.detector.detect(img);
 
-        let img = ModelImage::new(file);
-        let result = state.detector.detect(img);
+    info!("Detection route complete");
 
-        info!("Detection route complete");
-
-        Ok(Json(json!(result)))
-    })
+    Ok(Json(json!(result)))
 }
 
 struct AppState {
@@ -160,11 +133,12 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    let otel_addr = env::var("OTEL_ADDR").expect("need otel address");
+
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
         .with_protocol(opentelemetry_otlp::Protocol::HttpJson)
-        // .with_endpoint("http://jaeger-all-in-one:4318/v1/traces")
-        .with_endpoint("http://localhost:4318/v1/traces")
+        .with_endpoint(otel_addr)
         .build()
         .expect("OTL exporter to work");
 
@@ -175,17 +149,15 @@ async fn main() {
         .with_batch_exporter(otlp_exporter)
         .build();
 
+    let tracer = provider.tracer("my_tracer");
+
     global::set_tracer_provider(provider);
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new("info"))
         .with(tracing_subscriber::fmt::layer())
+        .with(OpenTelemetryLayer::new(tracer))
         .init();
-
-    let tracer = global::tracer("my_tracer");
-    tracer.in_span("doing_work", |_cx| {
-        info!("tracing something");
-    });
 
     let span = span!(Level::INFO, "main");
     let _enter = span.enter();
@@ -204,7 +176,6 @@ async fn main() {
         .route("/", get(|| async { "Hello, World!" }))
         .route("/detect", get(detect))
         .route("/classify", post(classify))
-        .route("/trace", get(test_tracing))
         .with_state(shared_state)
         .layer(cors);
 
