@@ -11,6 +11,10 @@ export interface BoundingBox {
   y2: number;
 }
 
+const API_URL = import.meta.env.VITE_API_URL;
+
+console.log("Api url", API_URL);
+
 export default function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,7 +44,7 @@ export default function App() {
     formData.append("image", selectedFile);
 
     try {
-      const response = await fetch("http://localhost:3000/classify", {
+      const response = await fetch(`${API_URL}/classify`, {
         method: "POST",
         body: formData,
       });

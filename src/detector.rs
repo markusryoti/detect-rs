@@ -45,7 +45,7 @@ impl Detector {
         let start = Instant::now();
 
         let (img_width, img_height) = (image.width(), image.height());
-        let img = image.resize_exact(640, 640, FilterType::CatmullRom);
+        let img = image.resize_exact(640, 640, FilterType::Gaussian);
 
         let duration = start.elapsed();
         info!("Image resized in {:.2?}", duration);

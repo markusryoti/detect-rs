@@ -8,6 +8,8 @@ RUN npm install --frozen-lockfile
 
 COPY . .
 
+ENV VITE_API_URL=http://api.detection-app.local
+
 RUN npm run build
 
 FROM caddy:2.7.6-alpine
