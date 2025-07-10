@@ -14,8 +14,8 @@ api:
 
 otel:
   name: otel
-  # serviceName: otel-collector-opentelemetry-collector 
-  serviceName: jaeger-collector
+  serviceName: otel-collector-opentelemetry-collector 
+  # serviceName: jaeger-collector
   namespace: monitoring
 
 ingress:
