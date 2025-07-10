@@ -1,3 +1,5 @@
+use detect_rs::{detector::Detector, image::ModelImage};
+
 use axum::{
     Router,
     extract::{Multipart, Query, State},
@@ -5,11 +7,10 @@ use axum::{
     response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
-use detect_rs::{detector::Detector, image::ModelImage};
 use serde::Serialize;
+use serde_json::{Value, json};
 use tower_http::cors::{Any, CorsLayer};
 
-use serde_json::{Value, json};
 use std::{collections::HashMap, env, sync::Arc};
 
 use tracing::{Level, info, span};
@@ -123,8 +124,8 @@ async fn main() {
     info!("Trace address: {otel_addr}");
 
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_http()
-        .with_protocol(opentelemetry_otlp::Protocol::HttpJson)
+        .with_tonic()
+        .with_protocol(opentelemetry_otlp::Protocol::Grpc)
         .with_endpoint(otel_addr)
         .build()
         .expect("OTL exporter to work");

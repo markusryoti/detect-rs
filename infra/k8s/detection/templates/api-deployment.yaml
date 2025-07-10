@@ -26,7 +26,7 @@ spec:
           value: info
         env:
         - name: OTEL_ADDR
-          value: "http://{{ .Values.otel.serviceName }}.{{ .Values.otel.namespace }}.svc.cluster.local:4318/v1/traces"
+          value: "http://{{ .Values.otel.serviceName }}.{{ .Values.otel.namespace }}.svc.cluster.local:4317/v1/traces"
 
 ---
 apiVersion: v1
