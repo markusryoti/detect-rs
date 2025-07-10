@@ -8,7 +8,7 @@ RUN npm install --frozen-lockfile
 
 COPY . .
 
-ENV VITE_API_URL=http://api.detection-app.local
+ENV VITE_API_URL=http://api.detection-dev.local
 
 RUN npm run build
 

@@ -16,12 +16,8 @@ use tracing::{Level, info, span};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use opentelemetry::global;
 use opentelemetry::trace::TracerProvider as _;
-use opentelemetry::{
-    KeyValue,
-    global::{self},
-    trace::get_active_span,
-};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
 
@@ -53,15 +49,6 @@ async fn classify(
         None => return Err(AppError::Message(String::from("no image in request"))),
     };
 
-    let n_bytes = b.len();
-
-    get_active_span(|span| {
-        span.add_event(
-            "form parsed",
-            vec![KeyValue::new("form bytes", format!("{n_bytes}"))],
-        )
-    });
-
     let model_img = ModelImage::from_bytes("some name", &b);
     let img = match model_img {
         Ok(img) => img,
@@ -71,8 +58,6 @@ async fn classify(
     info!("Have model image");
 
     let res = state.detector.detect(img);
-
-    get_active_span(|span| span.add_event("inference done", vec![]));
 
     Ok(Json(json!(res)))
 }
@@ -134,6 +119,8 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     let otel_addr = env::var("OTEL_ADDR").expect("need otel address");
+
+    info!("Trace address: {otel_addr}");
 
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()

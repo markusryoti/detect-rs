@@ -1,0 +1,27 @@
+appName: detection
+
+namespace: default
+
+web:
+  name: detection-web
+  serviceName: detection-web-service
+  replicas: 2
+
+api:
+  name: detection-api
+  serviceName: detection-api-service
+  replicas: 2
+
+otel:
+  name: otel
+  # serviceName: otel-collector-opentelemetry-collector 
+  serviceName: jaeger-collector
+  namespace: monitoring
+
+ingress:
+  web:
+    address: detection.local
+  api:
+    address: api.detection.local
+  jaeger:
+    address: jaeger.detection.local

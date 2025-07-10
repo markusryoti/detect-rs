@@ -1,0 +1,9 @@
+namespace: dev
+
+ingress:
+  web:
+    address: detection-dev.local
+  api:
+    address: api.detection-dev.local
+  jaeger:
+    address: jaeger.detection-dev.local

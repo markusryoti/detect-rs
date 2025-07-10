@@ -1,38 +1,28 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: detection-app-ingress
+  name: "{{ .Values.appName }}-ingress"
+  namespace: {{ .Values.namespace }}
   annotations:
 spec:
   rules:
-  - host: detection-app.local
+  - host: {{ .Values.ingress.web.address }}
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: web-service
+            name: {{ .Values.web.serviceName }}
             port:
               number: 80
-  - host: api.detection-app.local
+  - host: {{ .Values.ingress.api.address }}
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: api-service
+            name: {{ .Values.api.serviceName }}
             port:
               number: 8080
-  - host: jaeger.local
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: jaeger-all-in-one
-            port:
-              number: 16686
-

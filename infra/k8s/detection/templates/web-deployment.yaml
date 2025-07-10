@@ -1,21 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-deployment
+  name: {{ .Values.web.name }}
+  namespace: {{ .Values.namespace }}
   labels:
-    app: web
+    app: {{ .Values.web.name }}
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: web
+      app: {{ .Values.web.name }}
   template:
     metadata:
       labels:
-        app: web
+        app: {{ .Values.web.name }}
     spec:
       containers:
-      - name: detect-web
+      - name: {{ .Values.web.name }}
         image: markusryoti/detect-web
         imagePullPolicy: Always # dev
         ports:
@@ -25,10 +26,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: web-service
+  name: {{ .Values.web.serviceName }}
+  namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: web
+    app: {{ .Values.web.name }}
   ports:
     - protocol: TCP
       port: 80
