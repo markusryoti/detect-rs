@@ -11,9 +11,9 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use tower_http::cors::{Any, CorsLayer};
 
-use std::{collections::HashMap, env, sync::Arc};
+use std::{collections::HashMap, env, fmt::Debug, sync::Arc};
 
-use tracing::{Level, info, span};
+use tracing::{Level, info, instrument, span};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -22,13 +22,11 @@ use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
 
+#[instrument(skip(multipart))]
 async fn classify(
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
 ) -> Result<Json<Value>, AppError> {
-    let span = span!(Level::INFO, "form_detection");
-    let _enter = span.enter();
-
     info!("Classifying route");
 
     let mut img_bytes: Option<bytes::Bytes> = None;
@@ -115,6 +113,12 @@ async fn detect(
 
 struct AppState {
     detector: Detector,
+}
+
+impl Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(write!(f, "detector")?)
+    }
 }
 
 #[tokio::main]

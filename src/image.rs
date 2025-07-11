@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{fmt::Debug, time::Instant};
 
 use image::{DynamicImage, ImageReader, load_from_memory};
 use tracing::{info, instrument};
@@ -6,6 +6,12 @@ use tracing::{info, instrument};
 pub struct ModelImage {
     name: String,
     image: DynamicImage,
+}
+
+impl Debug for ModelImage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(write!(f, "{}", self.name)?)
+    }
 }
 
 pub enum ModelImageError {

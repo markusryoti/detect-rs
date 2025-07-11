@@ -11,7 +11,7 @@ config:
 
   exporters:
     otlp: 
-      endpoint: http://jaeger-collector:4317
+      endpoint: jaeger-collector:4317
       tls:
         insecure: true
 
